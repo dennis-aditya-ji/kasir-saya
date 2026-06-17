@@ -6,7 +6,7 @@
 const CONFIG = {
   // Ganti dengan URL Web App hasil Deploy dari Google Apps Script.
   // Contoh: "https://script.google.com/macros/s/AKfycb.../exec"
-  API_URL: "GANTI_DENGAN_URL_WEB_APP_ANDA",
+  API_URL: "https://script.google.com/macros/s/AKfycbywiAbTtz_iecqZ2V-P_V-3oQv6s1fMOC3yO4gtX4GPkiOkUErz5w2jBAIwVnKwhsu7/exec",
 
   // Placeholder logo toko (bisa diganti link gambar logo Anda nanti)
   LOGO_URL: "https://via.placeholder.com/150x150?text=LOGO",
