@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Kasir Saya</title>
+
+<!-- ============ PWA META ============ -->
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#16213e" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Kasir" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- ============ TOAST NOTIFICATION ============ -->
+<div id="toast" class="toast"></div>
+
+<!-- ============ LOADING OVERLAY ============ -->
+<div id="loadingOverlay" class="loading-overlay hidden">
+  <div class="spinner"></div>
+  <p id="loadingText">Memuat...</p>
+</div>
+
+<!-- ============ HEADER ============ -->
+<header class="app-header">
+  <div class="header-logo-wrap">
+    <img id="headerLogo" src="" alt="Logo" class="header-logo" />
+    <div>
+      <h1 id="headerNamaToko" class="header-title">Toko Saya</h1>
+      <p id="pageSubtitle" class="header-subtitle">Kasir</p>
+    </div>
+  </div>
+</header>
+
+<!-- ============ MAIN CONTENT ============ -->
+<main class="app-main">
+
+  <!-- ===== HALAMAN: KASIR ===== -->
+  <section id="page-kasir" class="page active">
+    <div class="kasir-layout">
+
+      <div class="produk-panel">
+        <div class="search-bar">
+          <input type="text" id="searchProduk" placeholder="Cari produk..." />
+        </div>
+        <div id="listProdukKasir" class="produk-grid"></div>
+      </div>
+
+      <div class="keranjang-panel">
+        <h3 class="panel-title">Keranjang</h3>
+        <div id="listKeranjang" class="keranjang-list">
+          <p class="empty-state">Belum ada item. Pilih produk di sebelah kiri.</p>
+        </div>
+
+        <div class="keranjang-summary">
+          <div class="summary-row total-row">
+            <span>Total</span>
+            <span id="totalBelanja">Rp 0</span>
+          </div>
+
+          <div class="form-group">
+            <label>Metode Pembayaran</label>
+            <select id="metodeBayar">
+              <option value="Tunai">Tunai</option>
+              <option value="Transfer">Transfer</option>
+              <option value="QRIS">QRIS</option>
+            </select>
+          </div>
+
+          <div class="form-group" id="groupUangDiterima">
+            <label>Uang Diterima</label>
+            <input type="number" id="uangDiterima" placeholder="0" inputmode="numeric" />
+          </div>
+
+          <div class="summary-row" id="rowKembalian">
+            <span>Kembalian</span>
+            <span id="kembalianText">Rp 0</span>
+          </div>
+
+          <button id="btnBayar" class="btn btn-primary btn-block">Selesaikan Transaksi</button>
+          <button id="btnKosongkan" class="btn btn-ghost btn-block">Kosongkan Keranjang</button>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ===== HALAMAN: PRODUK ===== -->
+  <section id="page-produk" class="page">
+    <div class="page-toolbar">
+      <input type="text" id="searchProdukManage" placeholder="Cari produk..." class="flex-grow" />
+      <button id="btnTambahProduk" class="btn btn-primary">+ Produk</button>
+    </div>
+    <div id="listProdukManage" class="produk-list-manage"></div>
+  </section>
+
+  <!-- ===== HALAMAN: RIWAYAT ===== -->
+  <section id="page-riwayat" class="page">
+    <div class="page-toolbar">
+      <input type="month" id="filterBulanRiwayat" class="flex-grow" />
+    </div>
+    <div id="listRiwayat" class="riwayat-list"></div>
+  </section>
+
+  <!-- ===== HALAMAN: LAPORAN ===== -->
+  <section id="page-laporan" class="page">
+    <div class="page-toolbar">
+      <input type="month" id="filterBulanLaporan" class="flex-grow" />
+    </div>
+
+    <div class="laporan-cards">
+      <div class="laporan-card">
+        <span class="laporan-label">Total Omzet</span>
+        <span id="laporanOmzet" class="laporan-value">Rp 0</span>
+      </div>
+      <div class="laporan-card">
+        <span class="laporan-label">Jumlah Transaksi</span>
+        <span id="laporanJumlahTrx" class="laporan-value">0</span>
+      </div>
+    </div>
+
+    <h3 class="panel-title">Produk Terlaris</h3>
+    <div id="listProdukTerlaris" class="terlaris-list"></div>
+  </section>
+
+  <!-- ===== HALAMAN: PENGATURAN ===== -->
+  <section id="page-pengaturan" class="page">
+    <div class="form-card">
+      <div class="form-group">
+        <label>Nama Toko</label>
+        <input type="text" id="setNamaToko" placeholder="Nama toko Anda" />
+      </div>
+      <div class="form-group">
+        <label>Alamat</label>
+        <input type="text" id="setAlamat" placeholder="Alamat toko" />
+      </div>
+      <div class="form-group">
+        <label>Telepon</label>
+        <input type="text" id="setTelepon" placeholder="Nomor telepon" />
+      </div>
+      <div class="form-group">
+        <label>URL Logo</label>
+        <input type="text" id="setLogoUrl" placeholder="https://..." />
+      </div>
+      <div class="form-group">
+        <label>Catatan Struk</label>
+        <input type="text" id="setCatatanStruk" placeholder="Misal: Terima kasih telah berbelanja" />
+      </div>
+      <button id="btnSimpanPengaturan" class="btn btn-primary btn-block">Simpan Pengaturan</button>
+    </div>
+  </section>
+
+</main>
+
+<!-- ============ BOTTOM NAVBAR ============ -->
+<nav class="bottom-nav">
+  <button class="nav-item active" data-page="kasir">
+    <svg viewBox="0 0 24 24" class="nav-icon"><path d="M3 3h2l.4 2M7 13h10l3-7H6.4M7 13L5.4 5M7 13l-2.3 2.3a1 1 0 0 0 .7 1.7H17M9 21a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM18 21a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span>Kasir</span>
+  </button>
+  <button class="nav-item" data-page="produk">
+    <svg viewBox="0 0 24 24" class="nav-icon"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span>Produk</span>
+  </button>
+  <button class="nav-item" data-page="riwayat">
+    <svg viewBox="0 0 24 24" class="nav-icon"><path d="M3 3v5h5M3.05 13a9 9 0 1 0 2.13-7.36L3 8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 7v5l4 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span>Riwayat</span>
+  </button>
+  <button class="nav-item" data-page="laporan">
+    <svg viewBox="0 0 24 24" class="nav-icon"><path d="M3 3v18h18M7 16l4-4 3 3 5-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span>Laporan</span>
+  </button>
+  <button class="nav-item" data-page="pengaturan">
+    <svg viewBox="0 0 24 24" class="nav-icon"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span>Atur</span>
+  </button>
+</nav>
+
+<!-- ============ MODAL: FORM PRODUK ============ -->
+<div id="modalProduk" class="modal-overlay hidden">
+  <div class="modal-box">
+    <h3 id="modalProdukTitle" class="modal-title">Tambah Produk</h3>
+    <input type="hidden" id="produkId" />
+    <div class="form-group">
+      <label>Nama Produk</label>
+      <input type="text" id="produkNama" placeholder="Misal: Kopi Susu" />
+    </div>
+    <div class="form-group">
+      <label>Varian (opsional)</label>
+      <input type="text" id="produkVarian" placeholder="Misal: Panas / Dingin" />
+    </div>
+    <div class="form-group">
+      <label>Harga</label>
+      <input type="number" id="produkHarga" placeholder="0" inputmode="numeric" />
+    </div>
+    <div class="form-group">
+      <label>Stok</label>
+      <input type="number" id="produkStok" placeholder="0" inputmode="numeric" />
+    </div>
+    <div class="form-group">
+      <label>Kategori (opsional)</label>
+      <input type="text" id="produkKategori" placeholder="Misal: Minuman" />
+    </div>
+    <div class="modal-actions">
+      <button id="btnBatalProduk" class="btn btn-ghost">Batal</button>
+      <button id="btnSimpanProduk" class="btn btn-primary">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: STRUK DIGITAL ============ -->
+<div id="modalStruk" class="modal-overlay hidden">
+  <div class="modal-box struk-box">
+    <div id="strukContent" class="struk-paper"></div>
+    <div class="modal-actions">
+      <button id="btnTutupStruk" class="btn btn-ghost">Tutup</button>
+      <button id="btnBagikanStruk" class="btn btn-primary">Bagikan</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: EDIT TRANSAKSI ============ -->
+<div id="modalEditTrx" class="modal-overlay hidden">
+  <div class="modal-box">
+    <h3 class="modal-title">Edit Transaksi</h3>
+    <input type="hidden" id="editTrxId" />
+    <div id="editTrxItemList" class="edit-trx-items"></div>
+    <div class="form-group">
+      <label>Metode Pembayaran</label>
+      <select id="editTrxMetode">
+        <option value="Tunai">Tunai</option>
+        <option value="Transfer">Transfer</option>
+        <option value="QRIS">QRIS</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Catatan</label>
+      <input type="text" id="editTrxCatatan" placeholder="Catatan koreksi (opsional)" />
+    </div>
+    <div class="modal-actions">
+      <button id="btnBatalEditTrx" class="btn btn-ghost">Batal</button>
+      <button id="btnSimpanEditTrx" class="btn btn-primary">Simpan Perubahan</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: KONFIRMASI ============ -->
+<div id="modalKonfirmasi" class="modal-overlay hidden">
+  <div class="modal-box">
+    <h3 id="konfirmasiTitle" class="modal-title">Konfirmasi</h3>
+    <p id="konfirmasiText" class="confirm-text"></p>
+    <div class="modal-actions">
+      <button id="btnBatalKonfirmasi" class="btn btn-ghost">Batal</button>
+      <button id="btnYaKonfirmasi" class="btn btn-danger">Ya, Lanjutkan</button>
+    </div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
