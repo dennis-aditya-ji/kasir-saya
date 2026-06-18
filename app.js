@@ -7,7 +7,9 @@ let STATE = {
   keranjang: [], // { produkId, nama, varian, harga, qty }
   riwayat: [],
   pengaturan: {},
-  editingTrxId: null
+  editingTrxId: null,
+  pin: null,
+  trxTerakhir: null
 };
 
 // ============ HELPERS ============
@@ -49,11 +51,95 @@ function askConfirm(title, text, onYes) {
   showModal('modalKonfirmasi');
 }
 
+// ============ LOGIN / PIN ============
+
+function simpanPinSesi(pin) {
+  STATE.pin = pin;
+  try { sessionStorage.setItem('kasir_pin', pin); } catch (e) {}
+}
+
+function ambilPinSesi() {
+  if (STATE.pin) return STATE.pin;
+  try { return sessionStorage.getItem('kasir_pin'); } catch (e) { return null; }
+}
+
+function hapusPinSesi() {
+  STATE.pin = null;
+  try { sessionStorage.removeItem('kasir_pin'); } catch (e) {}
+}
+
+function simpanLogoTerakhir(url) {
+  try { sessionStorage.setItem('kasir_logo_url', url || ''); } catch (e) {}
+}
+
+function ambilLogoTerakhir() {
+  try { return sessionStorage.getItem('kasir_logo_url') || CONFIG.LOGO_URL; } catch (e) { return CONFIG.LOGO_URL; }
+}
+
+// Pasang gambar dengan fallback otomatis ke placeholder jika URL gagal dimuat
+// (mencegah ikon "gambar rusak" tampil di layar)
+function setGambarDenganFallback(imgElement, url) {
+  imgElement.onerror = () => {
+    imgElement.onerror = null; // hindari loop tak berhenti jika placeholder juga gagal
+    imgElement.src = CONFIG.LOGO_URL;
+  };
+  imgElement.src = url || CONFIG.LOGO_URL;
+}
+
+async function cobaLogin() {
+  const pinInput = document.getElementById('loginPinInput').value.trim();
+  const errorEl = document.getElementById('loginError');
+  errorEl.textContent = '';
+
+  if (!pinInput) { errorEl.textContent = 'PIN tidak boleh kosong'; return; }
+
+  const btn = document.getElementById('btnLoginSubmit');
+  btn.disabled = true;
+  btn.textContent = 'Memeriksa...';
+
+  try {
+    const url = new URL(CONFIG.API_URL);
+    url.searchParams.set('action', 'cekLogin');
+    url.searchParams.set('pin', pinInput);
+    const res = await fetch(url.toString());
+    const json = await res.json();
+
+    if (json.valid) {
+      simpanPinSesi(pinInput);
+      maskukKeApp();
+    } else {
+      errorEl.textContent = json.message || 'PIN salah';
+      document.getElementById('loginPinInput').value = '';
+    }
+  } catch (err) {
+    errorEl.textContent = 'Gagal terhubung ke server. Cek koneksi internet.';
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Masuk';
+}
+
+function maskukKeApp() {
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('appContainer').classList.remove('hidden');
+  initApp();
+}
+
+function logout() {
+  askConfirm('Keluar?', 'Anda perlu masukkan PIN lagi untuk masuk ke aplikasi.', () => {
+    hapusPinSesi();
+    document.getElementById('appContainer').classList.add('hidden');
+    document.getElementById('loginScreen').classList.remove('hidden');
+    document.getElementById('loginPinInput').value = '';
+  });
+}
+
 // ============ API CALLS ============
 
 async function apiCall(action, params = {}) {
   const url = new URL(CONFIG.API_URL);
   url.searchParams.set('action', action);
+  url.searchParams.set('pin', ambilPinSesi() || '');
   Object.keys(params).forEach(key => {
     const val = typeof params[key] === 'object' ? JSON.stringify(params[key]) : params[key];
     url.searchParams.set(key, val);
@@ -61,6 +147,14 @@ async function apiCall(action, params = {}) {
 
   const res = await fetch(url.toString());
   const json = await res.json();
+
+  if (json.needLogin) {
+    hapusPinSesi();
+    document.getElementById('appContainer').classList.add('hidden');
+    document.getElementById('loginScreen').classList.remove('hidden');
+    throw new Error(json.message || 'Sesi berakhir, silakan masuk lagi');
+  }
+
   if (!json.success) throw new Error(json.message || 'Terjadi kesalahan');
   return json;
 }
@@ -90,9 +184,14 @@ function gotoPage(pageName) {
 
 // ============ INIT ============
 
-async function init() {
+let appSudahDiinit = false;
+
+async function initApp() {
   applyConfigPlaceholders();
-  setupEventListeners();
+  if (!appSudahDiinit) {
+    setupEventListeners();
+    appSudahDiinit = true;
+  }
 
   const now = new Date();
   const bulanInput = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -110,8 +209,38 @@ async function init() {
   registerServiceWorker();
 }
 
+async function initLoginScreen() {
+  setGambarDenganFallback(document.getElementById('loginLogo'), ambilLogoTerakhir());
+  document.title = CONFIG.APP_NAME;
+  document.getElementById('btnLoginSubmit').addEventListener('click', cobaLogin);
+  document.getElementById('loginPinInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') cobaLogin();
+  });
+
+  // Jika ada PIN tersimpan dari sesi sebelumnya (belum logout/tutup tab),
+  // langsung verifikasi ke server tanpa minta input ulang.
+  const pinTersimpan = ambilPinSesi();
+  if (pinTersimpan) {
+    try {
+      const url = new URL(CONFIG.API_URL);
+      url.searchParams.set('action', 'cekLogin');
+      url.searchParams.set('pin', pinTersimpan);
+      const res = await fetch(url.toString());
+      const json = await res.json();
+      if (json.valid) {
+        maskukKeApp();
+        return;
+      } else {
+        hapusPinSesi();
+      }
+    } catch (e) {
+      // gagal cek (misal offline) -> tetap tampilkan layar login
+    }
+  }
+}
+
 function applyConfigPlaceholders() {
-  document.getElementById('headerLogo').src = CONFIG.LOGO_URL;
+  setGambarDenganFallback(document.getElementById('headerLogo'), CONFIG.LOGO_URL);
   document.title = CONFIG.APP_NAME;
 }
 
@@ -299,10 +428,12 @@ async function prosesTransaksi() {
 }
 
 function tampilkanStruk(trx) {
+  STATE.trxTerakhir = trx;
   const set = STATE.pengaturan;
   const tgl = new Date(trx.tanggal);
   const tglFormat = tgl.toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
 
+  // Tampilan HTML tetap dipakai untuk preview di dalam modal (mudah dibaca & di-scroll)
   const itemRows = trx.item.map(it => `
     <div class="struk-row">
       <span>${escapeHtml(it.nama)}${it.varian ? ' (' + escapeHtml(it.varian) + ')' : ''} x${it.qty}</span>
@@ -311,7 +442,7 @@ function tampilkanStruk(trx) {
   `).join('');
 
   document.getElementById('strukContent').innerHTML = `
-    ${set.logo_url ? `<img src="${set.logo_url}" class="struk-logo" />` : ''}
+    ${set.logo_url ? `<img src="${set.logo_url}" class="struk-logo" onerror="this.style.display='none'" />` : ''}
     <div class="struk-center struk-bold">${escapeHtml(set.nama_toko || 'TOKO SAYA')}</div>
     <div class="struk-center">${escapeHtml(set.alamat || '')}</div>
     <div class="struk-center">${escapeHtml(set.telepon || '')}</div>
@@ -331,18 +462,227 @@ function tampilkanStruk(trx) {
   showModal('modalStruk');
 }
 
+// Menggambar struk sebagai gambar PNG asli (bukan teks) menggunakan Canvas API,
+// supaya hasil yang dibagikan tidak bisa di-copy/edit teksnya oleh penerima.
+async function renderStrukKeCanvas(trx) {
+  // Pastikan font JetBrains Mono sudah selesai dimuat sebelum digambar di canvas,
+  // supaya tidak fallback diam-diam ke font default browser.
+  try { await document.fonts.ready; } catch (e) {}
+
+  const set = STATE.pengaturan;
+  const tgl = new Date(trx.tanggal);
+  const tglFormat = tgl.toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
+
+  const W = 360; // lebar struk dalam px (mirip lebar kertas thermal 58-80mm di skala layar)
+  const PAD = 20;
+  const lineHeight = 20;
+  const fontMain = '13px "JetBrains Mono", monospace';
+  const fontBold = 'bold 13px "JetBrains Mono", monospace';
+  const fontHeader = 'bold 15px "JetBrains Mono", monospace';
+
+  // Coba muat logo dulu (jika ada) sebelum menghitung tinggi & menggambar
+  let logoImg = null;
+  if (set.logo_url) {
+    logoImg = await new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = set.logo_url;
+    });
+  }
+
+  // Hitung dulu berapa baris yang dibutuhkan tiap item (nama bisa wrap jika kepanjangan)
+  const tempCanvas = document.createElement('canvas');
+  const tempCtx = tempCanvas.getContext('2d');
+  tempCtx.font = fontMain;
+  const maxTextWidth = W - PAD * 2 - 70; // sisakan ruang untuk harga di kanan
+
+  function wrapText(ctx, text, maxWidth) {
+    const words = text.split(' ');
+    const lines = [];
+    let current = '';
+    words.forEach(word => {
+      const test = current ? current + ' ' + word : word;
+      if (ctx.measureText(test).width > maxWidth && current) {
+        lines.push(current);
+        current = word;
+      } else {
+        current = test;
+      }
+    });
+    if (current) lines.push(current);
+    return lines;
+  }
+
+  const itemLines = trx.item.map(it => {
+    const label = `${it.nama}${it.varian ? ' (' + it.varian + ')' : ''} x${it.qty}`;
+    return wrapText(tempCtx, label, maxTextWidth);
+  });
+  const totalItemLines = itemLines.reduce((sum, lines) => sum + lines.length, 0);
+
+  // Hitung tinggi total canvas
+  let H = PAD * 2;
+  H += logoImg ? 60 : 0;
+  H += lineHeight * 1.3; // nama toko
+  H += set.alamat ? lineHeight : 0;
+  H += set.telepon ? lineHeight : 0;
+  H += 16; // divider
+  H += lineHeight; // tanggal
+  H += 16; // divider
+  H += totalItemLines * lineHeight;
+  H += 16; // divider
+  H += lineHeight * 4; // total, metode, dibayar, kembalian
+  H += 16; // divider
+  H += lineHeight * 1.5; // catatan
+
+  const dpr = window.devicePixelRatio || 1;
+  const canvas = document.createElement('canvas');
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  // Background putih bersih
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.fillStyle = '#1a1a1a';
+  ctx.textBaseline = 'top';
+
+  let y = PAD;
+
+  if (logoImg) {
+    const logoSize = 50;
+    ctx.drawImage(logoImg, (W - logoSize) / 2, y, logoSize, logoSize);
+    y += 60;
+  }
+
+  function drawCenter(text, font) {
+    ctx.font = font;
+    ctx.textAlign = 'center';
+    ctx.fillText(text, W / 2, y);
+    ctx.textAlign = 'left';
+    y += lineHeight;
+  }
+
+  function drawDivider() {
+    ctx.strokeStyle = '#cccccc';
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(PAD, y + 6);
+    ctx.lineTo(W - PAD, y + 6);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    y += 16;
+  }
+
+  function drawRow(left, right, font) {
+    ctx.font = font;
+    ctx.textAlign = 'left';
+    ctx.fillText(left, PAD, y);
+    ctx.textAlign = 'right';
+    ctx.fillText(right, W - PAD, y);
+    y += lineHeight;
+  }
+
+  drawCenter(set.nama_toko || 'TOKO SAYA', fontHeader);
+  if (set.alamat) drawCenter(set.alamat, fontMain);
+  if (set.telepon) drawCenter(set.telepon, fontMain);
+  drawDivider();
+  ctx.font = fontMain;
+  ctx.textAlign = 'left';
+  ctx.fillText(tglFormat, PAD, y);
+  y += lineHeight;
+  drawDivider();
+
+  trx.item.forEach((it, idx) => {
+    const lines = itemLines[idx];
+    const subtotal = formatRupiah(it.harga * it.qty);
+    lines.forEach((line, i) => {
+      if (i === lines.length - 1) {
+        drawRow(line, subtotal, fontMain);
+      } else {
+        ctx.font = fontMain;
+        ctx.textAlign = 'left';
+        ctx.fillText(line, PAD, y);
+        y += lineHeight;
+      }
+    });
+  });
+
+  drawDivider();
+  drawRow('TOTAL', formatRupiah(trx.total), fontBold);
+  drawRow('Metode', trx.metodeBayar, fontMain);
+  drawRow('Dibayar', formatRupiah(trx.uangDiterima), fontMain);
+  drawRow('Kembalian', formatRupiah(trx.kembalian), fontMain);
+  drawDivider();
+  drawCenter(set.catatan_struk || 'Terima kasih', fontMain);
+
+  return canvas;
+}
+
 async function bagikanStruk() {
-  const text = document.getElementById('strukContent').innerText;
-  if (navigator.share) {
-    try { await navigator.share({ text }); } catch (e) {}
-  } else {
-    try {
-      await navigator.clipboard.writeText(text);
-      showToast('Struk disalin ke clipboard', 'success');
-    } catch (e) {
-      showToast('Tidak dapat membagikan struk', 'error');
+  if (!STATE.trxTerakhir) { showToast('Data struk tidak ditemukan', 'error'); return; }
+
+  const btn = document.getElementById('btnBagikanStruk');
+  btn.disabled = true;
+  btn.textContent = 'Memproses...';
+
+  try {
+    let canvas = await renderStrukKeCanvas(STATE.trxTerakhir);
+    let blob = await cobaCanvasKeBlob(canvas);
+
+    if (!blob) {
+      // Kemungkinan logo gagal diekspor karena CORS (canvas "tainted").
+      // Render ulang tanpa logo agar struk tetap bisa dibagikan.
+      const logoAsli = STATE.pengaturan.logo_url;
+      STATE.pengaturan.logo_url = '';
+      canvas = await renderStrukKeCanvas(STATE.trxTerakhir);
+      STATE.pengaturan.logo_url = logoAsli;
+      blob = await cobaCanvasKeBlob(canvas);
+    }
+
+    if (!blob) throw new Error('Gagal membuat gambar struk');
+
+    const fileName = `struk-${Date.now()}.png`;
+    const file = new File([blob], fileName, { type: 'image/png' });
+
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: 'Struk Belanja' });
+    } else {
+      // Fallback: unduh langsung sebagai file gambar jika Web Share API
+      // untuk file tidak didukung oleh browser ini.
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('Struk diunduh sebagai gambar', 'success');
+    }
+  } catch (err) {
+    if (err.name !== 'AbortError') {
+      showToast('Gagal membagikan struk: ' + err.message, 'error');
     }
   }
+
+  btn.disabled = false;
+  btn.textContent = 'Bagikan';
+}
+
+function cobaCanvasKeBlob(canvas) {
+  return new Promise(resolve => {
+    try {
+      canvas.toBlob(blob => resolve(blob), 'image/png');
+    } catch (e) {
+      resolve(null);
+    }
+  });
 }
 
 // ============ PRODUK: MANAGE (CRUD) ============
@@ -605,7 +945,10 @@ async function loadPengaturan() {
   STATE.pengaturan = res.data;
 
   document.getElementById('headerNamaToko').textContent = res.data.nama_toko || 'Toko Saya';
-  if (res.data.logo_url) document.getElementById('headerLogo').src = res.data.logo_url;
+  if (res.data.logo_url) {
+    setGambarDenganFallback(document.getElementById('headerLogo'), res.data.logo_url);
+    simpanLogoTerakhir(res.data.logo_url);
+  }
 
   document.getElementById('setNamaToko').value = res.data.nama_toko || '';
   document.getElementById('setAlamat').value = res.data.alamat || '';
@@ -637,6 +980,8 @@ async function simpanPengaturan() {
 // ============ EVENT LISTENERS ============
 
 function setupEventListeners() {
+  document.getElementById('btnLogout').addEventListener('click', logout);
+
   document.querySelectorAll('.nav-item').forEach(btn => {
     btn.addEventListener('click', () => gotoPage(btn.dataset.page));
   });
@@ -682,4 +1027,4 @@ function setupEventListeners() {
 }
 
 // ============ START ============
-document.addEventListener('DOMContentLoaded', init);
+document.addEventListener('DOMContentLoaded', initLoginScreen);
