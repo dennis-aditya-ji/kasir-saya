@@ -495,13 +495,13 @@ button, input, select {
 
 .riwayat-actions {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   margin-top: 10px;
 }
 
 .riwayat-actions .btn {
-  padding: 8px 14px;
-  font-size: 13px;
+  padding: 8px 8px;
+  font-size: 12.5px;
   flex: 1;
 }
 
