@@ -830,6 +830,7 @@ function renderRiwayat() {
         <div class="riwayat-items">${escapeHtml(itemText)}</div>
         ${t.catatan ? `<div class="riwayat-items" style="font-style:italic">Catatan: ${escapeHtml(t.catatan)}</div>` : ''}
         <div class="riwayat-actions">
+          <button class="btn btn-ghost" style="border-color:#ddd;color:#555" onclick="bagikanStrukDariRiwayat('${t.id}')">Bagikan</button>
           <button class="btn btn-ghost" style="border-color:#ddd;color:#555" onclick="bukaEditTransaksi('${t.id}')">Edit</button>
           <button class="btn btn-danger" onclick="konfirmasiHapusTransaksi('${t.id}')">Hapus</button>
         </div>
@@ -876,14 +877,31 @@ async function simpanEditTransaksi() {
   if (!t) return;
 
   const total = t.item.reduce((sum, it) => sum + it.harga * it.qty, 0);
+  const metodeBaru = document.getElementById('editTrxMetode').value;
+
+  // Hitung ulang uang diterima & kembalian berdasarkan total baru,
+  // supaya tidak memakai nilai lama yang sudah tidak sesuai setelah qty diubah.
+  let uangDiterimaBaru = total;
+  let kembalianBaru = 0;
+  if (metodeBaru === 'Tunai') {
+    // Pertahankan nominal uang fisik yang diterima dari pelanggan jika metode masih Tunai,
+    // lalu hitung ulang kembaliannya berdasarkan total baru.
+    uangDiterimaBaru = t.metodeBayar === 'Tunai' ? t.uangDiterima : total;
+    kembalianBaru = uangDiterimaBaru - total;
+    if (kembalianBaru < 0) {
+      showToast('Total baru lebih besar dari uang yang diterima. Periksa kembali atau ganti metode bayar.', 'error');
+      return;
+    }
+  }
+
   const updated = {
     id: t.id,
     tanggal: t.tanggal,
     item: t.item,
     total,
-    metodeBayar: document.getElementById('editTrxMetode').value,
-    uangDiterima: t.metodeBayar === 'Tunai' ? t.uangDiterima : total,
-    kembalian: t.kembalian,
+    metodeBayar: metodeBaru,
+    uangDiterima: uangDiterimaBaru,
+    kembalian: kembalianBaru,
     catatan: document.getElementById('editTrxCatatan').value.trim()
   };
 
@@ -913,6 +931,15 @@ function konfirmasiHapusTransaksi(id) {
     }
     hideLoading();
   });
+}
+
+// Membuka kembali tampilan struk untuk transaksi yang sudah tercatat di riwayat,
+// supaya bisa dibagikan ulang (misal pelanggan minta ubah pesanan setelah
+// transaksi sudah disimpan dan struknya perlu dikirim ulang dengan data terbaru).
+function bagikanStrukDariRiwayat(id) {
+  const t = STATE.riwayat.find(x => x.id === id);
+  if (!t) { showToast('Transaksi tidak ditemukan', 'error'); return; }
+  tampilkanStruk(t);
 }
 
 // ============ LAPORAN ============
