@@ -6,11 +6,16 @@
 // untuk menghindari konflik sinkronisasi dengan Google Sheets.
 // Fungsi service worker di sini HANYA untuk memenuhi syarat teknis
 // agar PWA bisa di-install ke homescreen Android/iOS.
+//
+// PENTING: strategi di sini adalah "selalu ambil versi terbaru dari
+// internet dulu" untuk SEMUA file (HTML/CSS/JS), bukan cache-first.
+// Ini memastikan setiap kali Anda update app.js/style.css di GitHub,
+// pengguna akan langsung mendapat versi terbaru tanpa perlu uninstall
+// aplikasi atau menunggu cache kedaluwarsa.
 // ============================================================
 
-const CACHE_NAME = 'kasir-shell-v1';
+const CACHE_NAME = 'kasir-shell-fallback';
 
-// Hanya cache "shell" statis (tampilan kosong), BUKAN data transaksi/produk.
 const SHELL_FILES = [
   './index.html',
   './style.css',
@@ -32,23 +37,29 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-    )
+    ).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
-// Strategi: Network First untuk semua request.
-// Jika offline, baru fallback ke shell cache (hanya tampilan, bukan data).
-// Request ke API Google Apps Script TIDAK pernah di-cache.
+// Network First MURNI untuk file shell: selalu coba ambil dari internet dulu.
+// Cache hanya dipakai jika benar-benar tidak ada koneksi sama sekali.
+// Setiap respons baru dari network akan menimpa cache lama secara otomatis,
+// jadi cache selalu mengikuti versi terbaru tanpa perlu ganti nama cache manual.
 self.addEventListener('fetch', (event) => {
   const url = event.request.url;
 
-  // Jangan cache sama sekali request ke Apps Script (data harus selalu live)
+  // Jangan pernah intercept request ke Apps Script (data harus selalu live)
   if (url.includes('script.google.com')) {
-    return; // biarkan lewat langsung ke network, tanpa intercept
+    return;
   }
 
   event.respondWith(
-    fetch(event.request).catch(() => caches.match(event.request))
+    fetch(event.request, { cache: 'no-store' })
+      .then((response) => {
+        const responseClone = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
+        return response;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
