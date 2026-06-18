@@ -18,6 +18,21 @@
 </head>
 <body>
 
+<!-- ============ LAYAR LOGIN PIN ============ -->
+<div id="loginScreen" class="login-screen">
+  <div class="login-box">
+    <img id="loginLogo" src="" alt="Logo" class="login-logo" />
+    <h1 class="login-title">Masuk</h1>
+    <p class="login-subtitle">Masukkan PIN untuk mengakses aplikasi</p>
+    <input type="password" id="loginPinInput" class="login-pin-input" inputmode="numeric" maxlength="8" placeholder="••••••" autocomplete="off" />
+    <p id="loginError" class="login-error"></p>
+    <button id="btnLoginSubmit" class="btn btn-primary btn-block">Masuk</button>
+  </div>
+</div>
+
+<!-- ============ APP CONTAINER (tersembunyi sampai login berhasil) ============ -->
+<div id="appContainer" class="app-container hidden">
+
 <!-- ============ TOAST NOTIFICATION ============ -->
 <div id="toast" class="toast"></div>
 
@@ -36,6 +51,9 @@
       <p id="pageSubtitle" class="header-subtitle">Kasir</p>
     </div>
   </div>
+  <button id="btnLogout" class="logout-btn" title="Keluar">
+    <svg viewBox="0 0 24 24" width="20" height="20"><path d="M16 17l5-5-5-5M21 12H9M13 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </button>
 </header>
 
 <!-- ============ MAIN CONTENT ============ -->
@@ -261,6 +279,8 @@
     </div>
   </div>
 </div>
+
+</div><!-- /appContainer -->
 
 <script src="config.js"></script>
 <script src="app.js"></script>
