@@ -163,10 +163,12 @@ async function apiCall(action, params = {}) {
 
 function gotoPage(pageName) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.getElementById('page-' + pageName).classList.add('active');
+  const targetPage = document.getElementById('page-' + pageName);
+  if (targetPage) targetPage.classList.add('active');
 
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  document.querySelector(`.nav-item[data-page="${pageName}"]`).classList.add('active');
+  const targetNav = document.querySelector(`.nav-item[data-page="${pageName}"]`);
+  if (targetNav) targetNav.classList.add('active');
 
   const subtitleMap = {
     kasir: 'Kasir',
@@ -175,11 +177,16 @@ function gotoPage(pageName) {
     laporan: 'Laporan Bulanan',
     pengaturan: 'Pengaturan'
   };
-  document.getElementById('pageSubtitle').textContent = subtitleMap[pageName] || '';
+  const subtitleEl = document.getElementById('pageSubtitle');
+  if (subtitleEl) subtitleEl.textContent = subtitleMap[pageName] || '';
 
-  if (pageName === 'produk') renderProdukManage();
-  if (pageName === 'riwayat') loadRiwayat();
-  if (pageName === 'laporan') loadLaporan();
+  try {
+    if (pageName === 'produk') renderProdukManage();
+    if (pageName === 'riwayat') loadRiwayat();
+    if (pageName === 'laporan') loadLaporan();
+  } catch (err) {
+    console.error('Gagal memuat halaman ' + pageName + ':', err);
+  }
 }
 
 // ============ INIT ============
@@ -979,17 +986,29 @@ async function simpanPengaturan() {
 
 // ============ EVENT LISTENERS ============
 
+// Helper aman: pasang event listener hanya jika elemennya benar-benar ada.
+// Ini mencegah satu elemen yang hilang/belum ter-update di HTML membuat
+// seluruh listener lain (termasuk navbar) gagal terpasang.
+function on(id, event, handler) {
+  const el = document.getElementById(id);
+  if (el) {
+    el.addEventListener(event, handler);
+  } else {
+    console.warn('Elemen dengan id "' + id + '" tidak ditemukan di HTML. Pastikan index.html sudah versi terbaru.');
+  }
+}
+
 function setupEventListeners() {
-  document.getElementById('btnLogout').addEventListener('click', logout);
+  on('btnLogout', 'click', logout);
 
   document.querySelectorAll('.nav-item').forEach(btn => {
     btn.addEventListener('click', () => gotoPage(btn.dataset.page));
   });
 
-  document.getElementById('searchProduk').addEventListener('input', e => renderProdukKasir(e.target.value));
-  document.getElementById('searchProdukManage').addEventListener('input', e => renderProdukManage(e.target.value));
+  on('searchProduk', 'input', e => renderProdukKasir(e.target.value));
+  on('searchProdukManage', 'input', e => renderProdukManage(e.target.value));
 
-  document.getElementById('metodeBayar').addEventListener('change', e => {
+  on('metodeBayar', 'change', e => {
     const isTunai = e.target.value === 'Tunai';
     document.getElementById('groupUangDiterima').style.display = isTunai ? 'block' : 'none';
     document.getElementById('rowKembalian').style.display = isTunai ? 'flex' : 'none';
@@ -997,33 +1016,33 @@ function setupEventListeners() {
     hitungKembalian();
   });
 
-  document.getElementById('uangDiterima').addEventListener('input', hitungKembalian);
-  document.getElementById('btnBayar').addEventListener('click', prosesTransaksi);
-  document.getElementById('btnKosongkan').addEventListener('click', () => {
+  on('uangDiterima', 'input', hitungKembalian);
+  on('btnBayar', 'click', prosesTransaksi);
+  on('btnKosongkan', 'click', () => {
     if (STATE.keranjang.length === 0) return;
     askConfirm('Kosongkan Keranjang?', 'Semua item di keranjang akan dihapus.', kosongkanKeranjang);
   });
 
-  document.getElementById('btnTambahProduk').addEventListener('click', bukaTambahProduk);
-  document.getElementById('btnBatalProduk').addEventListener('click', () => hideModal('modalProduk'));
-  document.getElementById('btnSimpanProduk').addEventListener('click', simpanProduk);
+  on('btnTambahProduk', 'click', bukaTambahProduk);
+  on('btnBatalProduk', 'click', () => hideModal('modalProduk'));
+  on('btnSimpanProduk', 'click', simpanProduk);
 
-  document.getElementById('btnTutupStruk').addEventListener('click', () => hideModal('modalStruk'));
-  document.getElementById('btnBagikanStruk').addEventListener('click', bagikanStruk);
+  on('btnTutupStruk', 'click', () => hideModal('modalStruk'));
+  on('btnBagikanStruk', 'click', bagikanStruk);
 
-  document.getElementById('btnBatalEditTrx').addEventListener('click', () => hideModal('modalEditTrx'));
-  document.getElementById('btnSimpanEditTrx').addEventListener('click', simpanEditTransaksi);
+  on('btnBatalEditTrx', 'click', () => hideModal('modalEditTrx'));
+  on('btnSimpanEditTrx', 'click', simpanEditTransaksi);
 
-  document.getElementById('btnBatalKonfirmasi').addEventListener('click', () => hideModal('modalKonfirmasi'));
-  document.getElementById('btnYaKonfirmasi').addEventListener('click', () => {
+  on('btnBatalKonfirmasi', 'click', () => hideModal('modalKonfirmasi'));
+  on('btnYaKonfirmasi', 'click', () => {
     hideModal('modalKonfirmasi');
     if (confirmCallback) confirmCallback();
   });
 
-  document.getElementById('filterBulanRiwayat').addEventListener('change', loadRiwayat);
-  document.getElementById('filterBulanLaporan').addEventListener('change', loadLaporan);
+  on('filterBulanRiwayat', 'change', loadRiwayat);
+  on('filterBulanLaporan', 'change', loadLaporan);
 
-  document.getElementById('btnSimpanPengaturan').addEventListener('click', simpanPengaturan);
+  on('btnSimpanPengaturan', 'click', simpanPengaturan);
 }
 
 // ============ START ============
